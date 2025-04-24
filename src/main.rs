@@ -1,11 +1,16 @@
 use askama::Template;
 use axum::{
-    Router, extract,
+    Router,
     http::StatusCode,
     response::{Html, IntoResponse, Response},
     routing::get,
 };
+use tower_http::{trace};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+fn app() -> Router {
+    Router::new().route("/", get(index))
+}
 
 #[tokio::main]
 async fn main() {
@@ -13,15 +18,20 @@ async fn main() {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| format!("{}=debug", env!("CARGO_CRATE_NAME")).into()),
+                .unwrap_or_else(|_| "quote-server=debug,info".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // build our application with some routes
-    let app = app();
+    // https://carlosmv.hashnode.dev/adding-logging-and-tracing-to-an-axum-app-rust
+    let trace_layer = trace::TraceLayer::new_for_http()
+        .make_span_with(trace::DefaultMakeSpan::new().level(tracing::Level::INFO))
+        .on_response(trace::DefaultOnResponse::new().level(tracing::Level::INFO));
 
-    // run it
+    // build application with routes
+    let app = app().layer(trace_layer);
+
+    // run the app
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
         .unwrap();
@@ -29,20 +39,14 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-fn app() -> Router {
-    Router::new().route("/greet/{name}", get(greet))
-}
-
-async fn greet(extract::Path(name): extract::Path<String>) -> impl IntoResponse {
-    let template = HelloTemplate { name };
+async fn index() -> impl IntoResponse {
+    let template = IndexTemplate;
     HtmlTemplate(template)
 }
 
 #[derive(Template)]
-#[template(path = "hello.html")]
-struct HelloTemplate {
-    name: String,
-}
+#[template(path = "index.html")]
+struct IndexTemplate;
 
 struct HtmlTemplate<T>(T);
 
@@ -77,7 +81,7 @@ mod tests {
         let response = app()
             .oneshot(
                 Request::builder()
-                    .uri("/greet/Foo")
+                    .uri("/")
                     .body(Body::empty())
                     .unwrap(),
             )
@@ -88,6 +92,6 @@ mod tests {
         let bytes = body.collect().await.unwrap().to_bytes();
         let html = String::from_utf8(bytes.to_vec()).unwrap();
 
-        assert_eq!(html, "<h1>Hello, Foo!</h1>");
+        assert_eq!(html, "<h1>Hello!</h1>");
     }
 }
