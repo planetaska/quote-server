@@ -13,6 +13,8 @@ thiserror = "2.0.12"
 tracing = "0.1.41"
 http-body-util = "0.1.3"
 tower = "0.5.2"
+displaydoc = "0.2.5"
+pretty-error-debug = "0.3.1"
 
 [dependencies.serde]
 version = "1.0.219"

@@ -1,19 +1,12 @@
-use askama::Template;
-use axum::{
-    Router,
-    http::StatusCode,
-    response::{Html, IntoResponse, Response},
-    routing::get,
-};
-use tower_http::{trace};
+mod templates;
+
+use axum::{Router, routing::get};
+use templates::{about_page, index_page};
+use tower_http::trace;
+use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 fn app() -> Router {
-    Router::new().route("/", get(index))
-}
-
-#[tokio::main]
-async fn main() {
     // setup tracing
     tracing_subscriber::registry()
         .with(
@@ -28,42 +21,36 @@ async fn main() {
         .make_span_with(trace::DefaultMakeSpan::new().level(tracing::Level::INFO))
         .on_response(trace::DefaultOnResponse::new().level(tracing::Level::INFO));
 
+    // build routes
+    Router::new()
+        .route("/", get(index_page))
+        .route("/about", get(about_page))
+        .layer(trace_layer)
+}
+
+#[tokio::main]
+async fn main() -> Result<(), AppError> {
     // build application with routes
-    let app = app().layer(trace_layer);
+    let app = app();
 
     // run the app
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
-        .unwrap();
-    tracing::debug!("listening on {}", listener.local_addr().unwrap());
-    axum::serve(listener, app).await.unwrap();
-}
+        .map_err(AppError::Bind)?;
 
-async fn index() -> impl IntoResponse {
-    let template = IndexTemplate;
-    HtmlTemplate(template)
-}
-
-#[derive(Template)]
-#[template(path = "index.html")]
-struct IndexTemplate;
-
-struct HtmlTemplate<T>(T);
-
-impl<T> IntoResponse for HtmlTemplate<T>
-where
-    T: Template,
-{
-    fn into_response(self) -> Response {
-        match self.0.render() {
-            Ok(html) => Html(html).into_response(),
-            Err(err) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to render template. Error: {err}"),
-            )
-                .into_response(),
-        }
+    if let Ok(addr) = listener.local_addr() {
+        info!("Listening on http://{addr}/");
     }
+
+    axum::serve(listener, app).await.map_err(AppError::Run)
+}
+
+#[derive(displaydoc::Display, pretty_error_debug::Debug, thiserror::Error)]
+enum AppError {
+    /// could not bind socket
+    Bind(#[source] std::io::Error),
+    /// could not run server
+    Run(#[source] std::io::Error),
 }
 
 #[cfg(test)]
@@ -79,12 +66,7 @@ mod tests {
     #[tokio::test]
     async fn test_main() {
         let response = app()
-            .oneshot(
-                Request::builder()
-                    .uri("/")
-                    .body(Body::empty())
-                    .unwrap(),
-            )
+            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
