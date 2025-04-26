@@ -1,3 +1,8 @@
+//! Database interaction module for the Quotes Server.
+//!
+//! Provides functions for SQLite database initialization, migration handling,
+//! importing default quotes from CSV, and CRUD operations for quotes and tags.
+//! 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite, migrate::MigrateDatabase, sqlite::SqlitePoolOptions};

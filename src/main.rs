@@ -1,3 +1,9 @@
+//! Main module for the Quotes Server.
+//!
+//! Handles HTTP server setup, routing configuration, and API endpoints.
+//! Initializes the database connection pool and serves both HTML templates
+//! and JSON API responses.
+//! 
 mod db;
 mod templates;
 

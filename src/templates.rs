@@ -1,3 +1,8 @@
+//! Template handling module for the Quotes Server.
+//!
+//! Defines Askama template structs for rendering HTML pages and implements
+//! conversion from template objects into HTTP responses.
+//! 
 use crate::AppState;
 use crate::db::{self, QuoteWithTags};
 use askama::Template;
