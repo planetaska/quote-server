@@ -188,14 +188,10 @@ pub async fn get_random_quote(pool: &Pool<Sqlite>) -> Result<Option<QuoteWithTag
         return Ok(None);
     }
 
-    // Get random quote ID
-    let random_id = fastrand::i64(1..=count);
-
     // Get random quote
     let quote = sqlx::query_as!(
         Quote,
-        "SELECT id, quote, source, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\" FROM quotes WHERE id = ?",
-        random_id
+        "SELECT id, quote, source, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\" FROM quotes ORDER BY RANDOM() LIMIT 1"
     )
         .fetch_optional(pool)
         .await?;
