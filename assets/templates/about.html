@@ -1,4 +1,31 @@
+{% extends "layout.html" %}
+
+{% block title %}About - Quotes Server{% endblock %}
+
+{% block content %}
 <h1>About</h1>
+
 <p>This is a simple quotes server built with Rust, Axum, and Askama.</p>
 
-<a href="/">Back</a>
+<div class="tech-stack">
+    <h2>Technology Stack</h2>
+    <ul>
+        <li><strong>Rust</strong> - Programming language</li>
+        <li><strong>Axum</strong> - Web framework</li>
+        <li><strong>Askama</strong> - Templating engine</li>
+        <li><strong>SQLite</strong> - Database for storing quotes and tags</li>
+        <li><strong>SQLx</strong> - SQL toolkit for Rust</li>
+        <li><strong>Tokio</strong> - Async runtime</li>
+    </ul>
+</div>
+
+<div class="features">
+    <h2>Features</h2>
+    <ul>
+        <li>Browse all quotes in the database</li>
+        <li>View a random quote</li>
+        <li>RESTful API for programmatic access</li>
+        <li>Automatic database initialization from CSV</li>
+    </ul>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+
+{% block title %}Random Quote{% endblock %}
+
+{% block content %}
+<div class="quote-container">
+    {% if has_quote %}
+    <div class="quote-text">"{{ quote.as_ref().unwrap().quote }}"</div>
+    <div class="quote-source">— {{ quote.as_ref().unwrap().source }}</div>
+
+    {% if !quote.as_ref().unwrap().tags.is_empty() %}
+    <div class="quote-tags">
+        {% for tag in quote.as_ref().unwrap().tags %}
+        <span class="tag">{{ tag }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <a href="/quote/random" class="refresh-button">Next Quote</a>
+    {% else %}
+    <p>No quotes available.</p>
+    {% endif %}
+</div>
+{% endblock %}

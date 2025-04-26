@@ -1,0 +1,6 @@
+<div class="nav">
+    <a href="/" {% if active_page == "home" %}class="featured"{% endif %}>Home</a>
+    <a href="/quote/random" {% if active_page == "random" %}class="featured"{% endif %}>Random Quote</a>
+    <a href="/quotes" {% if active_page == "quotes" %}class="featured"{% endif %}>All Quotes</a>
+    <a href="/about" {% if active_page == "about" %}class="featured"{% endif %}>About</a>
+</div>

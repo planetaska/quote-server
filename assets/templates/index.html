@@ -1,2 +1,28 @@
-<h1>Hello!</h1>
-<a href="/about">About</a>
+{% extends "layout.html" %}
+
+{% block title %}Quotes Server{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>Welcome to the Quotes Server!</h1>
+
+    <p>Serving up fresh inspiration 24/7 — no login, no nonsense, just quotes!</p>
+
+    {% if has_quote %}
+    <div class="quote-container">
+        <div class="quote-text">"{{ quote.as_ref().unwrap().quote }}"</div>
+        <div class="quote-source">— {{ quote.as_ref().unwrap().source }}</div>
+
+        {% if !quote.as_ref().unwrap().tags.is_empty() %}
+        <div class="quote-tags">
+            {% for tag in quote.as_ref().unwrap().tags %}
+            <span class="tag">{{ tag }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <p>No quotes available.</p>
+    {% endif %}
+</div>
+{% endblock %}

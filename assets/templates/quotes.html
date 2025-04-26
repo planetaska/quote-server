@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+
+{% block title %}All Quotes{% endblock %}
+
+{% block content %}
+<h1>All Quotes</h1>
+
+{% if quotes.is_empty() %}
+<p>No quotes found.</p>
+{% else %}
+<div class="quotes-list">
+    {% for quote in quotes %}
+    <div class="quote-container">
+        <div class="quote-text">"{{ quote.quote }}"</div>
+        <div class="quote-source">— {{ quote.source }}</div>
+
+        {% if !quote.tags.is_empty() %}
+        <div class="quote-tags">
+            {% for tag in quote.tags %}
+            <span class="tag">{{ tag }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
