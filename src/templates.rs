@@ -2,7 +2,7 @@
 //!
 //! Defines Askama template structs for rendering HTML pages and implements
 //! conversion from template objects into HTTP responses.
-//! 
+//!
 use crate::AppState;
 use crate::db::{self, QuoteWithTags};
 use askama::Template;
@@ -98,4 +98,73 @@ pub async fn random_quote_page(State(state): State<AppState>) -> impl IntoRespon
         active_page: "random".to_string(),
     };
     HtmlTemplate(template)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::response::IntoResponse;
+    use chrono::Utc;
+
+    #[test]
+    fn test_about_template_render() {
+        // Create an about template
+        let template = AboutTemplate {
+            active_page: "about".to_string(),
+        };
+
+        // Test that the template can be rendered
+        let result = template.render();
+        assert!(result.is_ok());
+
+        // Check that the rendered HTML contains expected content
+        let html = result.unwrap();
+        assert!(html.contains("<h1>About</h1>"));
+    }
+
+    #[test]
+    fn test_template_into_response() {
+        // Create a simple template
+        let template = AboutTemplate {
+            active_page: "about".to_string(),
+        };
+
+        // Create the HtmlTemplate wrapper and convert to response
+        let html_template = HtmlTemplate(template);
+        let response = html_template.into_response();
+
+        // Verify response status
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    #[test]
+    fn test_quote_template() {
+        // Create a test quote
+        let now = Utc::now();
+        let quote = QuoteWithTags {
+            id: 1,
+            quote: "Test quote".to_string(),
+            source: "Test source".to_string(),
+            created_at: now,
+            updated_at: now,
+            tags: vec!["test".to_string()],
+        };
+
+        // Create a quote template with the test quote
+        let template = QuoteTemplate {
+            quote: Some(quote),
+            has_quote: true,
+            active_page: "random".to_string(),
+        };
+
+        // Test that the template can be rendered
+        let result = template.render();
+        assert!(result.is_ok());
+
+        // Check that the rendered HTML contains the quote
+        let html = result.unwrap();
+        assert!(html.contains("Test quote"));
+        assert!(html.contains("Test source"));
+        assert!(html.contains("test")); // Tag should be present
+    }
 }

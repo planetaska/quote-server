@@ -3,7 +3,7 @@
 //! Handles HTTP server setup, routing configuration, and API endpoints.
 //! Initializes the database connection pool and serves both HTML templates
 //! and JSON API responses.
-//! 
+//!
 mod db;
 mod templates;
 
@@ -107,20 +107,68 @@ mod tests {
     };
     use tower::ServiceExt;
 
-    // Need to be updated to handle the database state
     #[tokio::test]
     async fn test_routes() {
-        // This is a simplified test that needs to be expanded
-        // to properly test with database integration
-        let pool = init_db().await.unwrap();
+        // Initialize an in-memory database for testing
+        let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+
+        // Run migrations
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+
+        // Insert a test quote
+        sqlx::query!(
+            "INSERT INTO quotes (quote, source, created_at, updated_at) 
+             VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+            "Test quote",
+            "Test source"
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        // Create app state
         let state = AppState { pool };
 
+        // Create app with test state
         let app = app(state);
 
+        // Test root route
         let response = app
+            .clone()
             .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
+
+        // Test API route returns JSON
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/quotes/random")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Verify content type is JSON
+        let content_type = response
+            .headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert!(content_type.contains("application/json"));
+    }
+
+    #[test]
+    fn test_app_error_display() {
+        let error = AppError::Bind(std::io::Error::new(
+            std::io::ErrorKind::AddrInUse,
+            "address already in use",
+        ));
+
+        assert_eq!(format!("{}", error), "could not bind socket");
     }
 }
