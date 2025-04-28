@@ -116,12 +116,12 @@ mod tests {
         sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
         // Insert a test quote
-        sqlx::query!(
+        sqlx::query(
             "INSERT INTO quotes (quote, source, created_at, updated_at) 
-             VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
-            "Test quote",
-            "Test source"
+             VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
         )
+        .bind("Test quote")
+        .bind("Test source")
         .execute(&pool)
         .await
         .unwrap();

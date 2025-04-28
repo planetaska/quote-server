@@ -112,11 +112,7 @@ tags
 
 To run tests:
 
-You will need to set DATABASE_URL env variable to run the database tests.
-
 ```
-export DATABASE_URL="sqlite://db/quotes.db"
-
 cargo test
 ```
 
