@@ -3,8 +3,8 @@
 //! Provides RESTful API endpoints with OpenAPI documentation using utoipa.
 //! Handles JSON responses for quotes and integrates with the database layer.
 //!
-use crate::{db::{self, QuoteWithTags}, AppState};
-use axum::{extract::State, response::Json, routing::get};
+use crate::{db::{self, QuoteWithTags, CreateQuoteRequest}, AppState};
+use axum::{extract::State, response::Json, routing::get, http::StatusCode};
 use utoipa::OpenApi;
 
 /// OpenAPI documentation for the Quotes API
@@ -12,10 +12,11 @@ use utoipa::OpenApi;
 #[openapi(
     paths(
         get_all_quotes,
-        get_random_quote
+        get_random_quote,
+        create_quote
     ),
     components(
-        schemas(QuoteWithTags)
+        schemas(QuoteWithTags, CreateQuoteRequest)
     ),
     tags(
         (name = "quotes", description = "Quote management endpoints")
@@ -70,9 +71,54 @@ pub async fn get_random_quote(State(state): State<AppState>) -> Json<Option<Quot
     Json(quote)
 }
 
+/// Create a new quote
+///
+/// Creates a new quote with optional tags and returns the created quote with its assigned ID.
+#[utoipa::path(
+    post,
+    path = "/api/v1/quotes",
+    request_body = CreateQuoteRequest,
+    responses(
+        (status = 201, description = "Quote successfully created", body = QuoteWithTags),
+        (status = 400, description = "Invalid request body"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "quotes"
+)]
+pub async fn create_quote(
+    State(state): State<AppState>,
+    Json(request): Json<CreateQuoteRequest>,
+) -> Result<(StatusCode, Json<QuoteWithTags>), (StatusCode, String)> {
+    // Validate input
+    if request.quote.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Quote text cannot be empty".to_string(),
+        ));
+    }
+
+    if request.source.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Quote source cannot be empty".to_string(),
+        ));
+    }
+
+    match db::create_quote(&state.pool, request).await {
+        Ok(quote) => Ok((StatusCode::CREATED, Json(quote))),
+        Err(err) => {
+            eprintln!("Database error: {}", err);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to create quote".to_string(),
+            ))
+        }
+    }
+}
+
 /// Create API router with all quote-related endpoints
 pub fn create_api_router() -> utoipa_axum::router::OpenApiRouter<AppState> {
     utoipa_axum::router::OpenApiRouter::new()
-        .route("/api/v1/quotes", get(get_all_quotes))
+        .route("/api/v1/quotes", get(get_all_quotes).post(create_quote))
         .route("/api/v1/quotes/random", get(get_random_quote))
 }
