@@ -73,6 +73,19 @@ pub struct CreateQuoteRequest {
     pub tags: Option<Vec<String>>,
 }
 
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct UpdateQuoteRequest {
+    /// The updated quote text
+    #[schema(example = "The future belongs to those who believe in the beauty of their dreams.")]
+    pub quote: String,
+    /// Updated source or author of the quote
+    #[schema(example = "Eleanor Roosevelt")]
+    pub source: String,
+    /// Updated list of tags for the quote (replaces existing tags)
+    #[schema(example = json!(["dreams", "future", "motivation", "inspiration"]))]
+    pub tags: Option<Vec<String>>,
+}
+
 pub async fn init_db() -> Result<Pool<Sqlite>, sqlx::Error> {
     // Create db directory if it doesn't exist
     let db_dir = Path::new("db");
@@ -220,6 +233,118 @@ pub async fn create_quote(pool: &Pool<Sqlite>, request: CreateQuoteRequest) -> R
         updated_at: now,
         tags: tag_names,
     })
+}
+
+// Function to update an existing quote
+pub async fn update_quote(pool: &Pool<Sqlite>, quote_id: i64, request: UpdateQuoteRequest) -> Result<Option<QuoteWithTags>, sqlx::Error> {
+    let now = Utc::now();
+
+    // First, check if the quote exists and get its creation timestamp
+    let existing_quote = sqlx::query!(
+        "SELECT created_at as \"created_at: DateTime<Utc>\" FROM quotes WHERE id = ?",
+        quote_id
+    )
+        .fetch_optional(pool)
+        .await?;
+
+    if existing_quote.is_none() {
+        return Ok(None); // Quote doesn't exist
+    }
+
+    let created_at = existing_quote.unwrap().created_at;
+
+    // Update the quote
+    sqlx::query!(
+        "UPDATE quotes SET quote = ?, source = ?, updated_at = ? WHERE id = ?",
+        request.quote,
+        request.source,
+        now,
+        quote_id
+    )
+        .execute(pool)
+        .await?;
+
+    // Delete existing tags for this quote
+    sqlx::query!(
+        "DELETE FROM tags WHERE quote_id = ?",
+        quote_id
+    )
+        .execute(pool)
+        .await?;
+
+    // Insert new tags if provided
+    let mut tag_names = Vec::new();
+    if let Some(tags) = request.tags {
+        // Use HashSet to remove duplicates and filter empty strings
+        let unique_tags: HashSet<String> = tags
+            .into_iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        for tag in &unique_tags {
+            sqlx::query!(
+                "INSERT INTO tags (quote_id, name, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                quote_id,
+                tag,
+                now,
+                now
+            )
+                .execute(pool)
+                .await?;
+        }
+
+        tag_names = unique_tags.into_iter().collect();
+        tag_names.sort(); // Sort for consistent ordering
+    }
+
+    // Return the updated quote with tags
+    Ok(Some(QuoteWithTags {
+        id: quote_id,
+        quote: request.quote,
+        source: request.source,
+        created_at,
+        updated_at: now,
+        tags: tag_names,
+    }))
+}
+
+// Function to get a quote by ID
+pub async fn get_quote_by_id(pool: &Pool<Sqlite>, quote_id: i64) -> Result<Option<QuoteWithTags>, sqlx::Error> {
+    // Query the specific quote
+    let quote = sqlx::query_as!(
+        Quote,
+        "SELECT id, quote, source, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\" FROM quotes WHERE id = ?",
+        quote_id
+    )
+        .fetch_optional(pool)
+        .await?;
+
+    match quote {
+        Some(quote) => {
+            // Get tags for this quote
+            let tags = sqlx::query_as!(
+                Tag,
+                "SELECT id, quote_id, name, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\" FROM tags WHERE quote_id = ?",
+                quote.id
+            )
+                .fetch_all(pool)
+                .await?;
+
+            // Extract tag names
+            let tag_names = tags.into_iter().map(|t| t.name).collect();
+
+            Ok(Some(QuoteWithTags {
+                id: quote.id,
+                quote: quote.quote,
+                source: quote.source,
+                created_at: quote.created_at,
+                updated_at: quote.updated_at,
+                tags: tag_names,
+            }))
+        }
+        None => Ok(None),
+    }
 }
 
 // Function to get all quotes with their tags

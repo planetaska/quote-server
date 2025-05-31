@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT created_at as \"created_at: DateTime<Utc>\" FROM quotes WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "created_at: DateTime<Utc>",
+        "ordinal": 0,
+        "type_info": "Datetime"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "eaba563a178c5af78958108b30b7da86a076d7bbcea1a15294fdf84de1b63ad8"
+}
