@@ -4,9 +4,9 @@
 //! Initializes the database connection pool and serves both HTML templates
 //! and JSON API responses with OpenAPI documentation.
 //!
+mod api;
 mod db;
 mod templates;
-mod api;
 
 use api::{ApiDoc, create_api_router};
 use axum::Router;
@@ -121,11 +121,11 @@ mod tests {
             "INSERT INTO quotes (quote, source, created_at, updated_at) 
              VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
         )
-            .bind("Test quote")
-            .bind("Test source")
-            .execute(&pool)
-            .await
-            .unwrap();
+        .bind("Test quote")
+        .bind("Test source")
+        .execute(&pool)
+        .await
+        .unwrap();
 
         // Create app state
         let state = AppState { pool };

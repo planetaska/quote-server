@@ -3,8 +3,16 @@
 //! Provides RESTful API endpoints with OpenAPI documentation using utoipa.
 //! Handles JSON responses for quotes and integrates with the database layer.
 //!
-use crate::{db::{self, QuoteWithTags, CreateQuoteRequest, UpdateQuoteRequest}, AppState};
-use axum::{extract::{Path, State}, response::Json, routing::get, http::StatusCode};
+use crate::{
+    AppState,
+    db::{self, CreateQuoteRequest, QuoteWithTags, UpdateQuoteRequest},
+};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::Json,
+    routing::get,
+};
 use utoipa::OpenApi;
 
 /// OpenAPI documentation for the Quotes API
@@ -15,7 +23,8 @@ use utoipa::OpenApi;
         get_quote_by_id,
         get_random_quote,
         create_quote,
-        update_quote
+        update_quote,
+        delete_quote
     ),
     components(
         schemas(QuoteWithTags, CreateQuoteRequest, UpdateQuoteRequest)
@@ -208,10 +217,49 @@ pub async fn update_quote(
     }
 }
 
+/// Delete a quote by ID
+///
+/// Permanently removes a quote and all its associated tags from the database.
+#[utoipa::path(
+    delete,
+    path = "/api/v1/quotes/{id}",
+    params(
+        ("id" = i64, Path, description = "Quote database ID to delete")
+    ),
+    responses(
+        (status = 204, description = "Quote successfully deleted"),
+        (status = 404, description = "Quote not found"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "quotes"
+)]
+pub async fn delete_quote(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    match db::delete_quote(&state.pool, id).await {
+        Ok(true) => Ok(StatusCode::NO_CONTENT),
+        Ok(false) => Err((
+            StatusCode::NOT_FOUND,
+            format!("Quote with ID {} not found", id),
+        )),
+        Err(err) => {
+            eprintln!("Database error: {}", err);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to delete quote".to_string(),
+            ))
+        }
+    }
+}
+
 /// Create API router with all quote-related endpoints
 pub fn create_api_router() -> utoipa_axum::router::OpenApiRouter<AppState> {
     utoipa_axum::router::OpenApiRouter::new()
         .route("/api/v1/quotes", get(get_all_quotes).post(create_quote))
         .route("/api/v1/quotes/random", get(get_random_quote))
-        .route("/api/v1/quotes/{id}", get(get_quote_by_id).put(update_quote))
+        .route(
+            "/api/v1/quotes/{id}",
+            get(get_quote_by_id).put(update_quote).delete(delete_quote),
+        )
 }

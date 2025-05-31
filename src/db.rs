@@ -148,9 +148,9 @@ async fn import_quotes_from_csv(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> 
             now,
             now
         )
-            .execute(pool)
-            .await?
-            .last_insert_rowid();
+        .execute(pool)
+        .await?
+        .last_insert_rowid();
 
         // Process tags
         if !quote.tags.is_empty() {
@@ -172,8 +172,8 @@ async fn import_quotes_from_csv(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> 
                     now,
                     now
                 )
-                    .execute(pool)
-                    .await?;
+                .execute(pool)
+                .await?;
             }
         }
     }
@@ -183,7 +183,10 @@ async fn import_quotes_from_csv(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> 
 }
 
 // Function to create a new quote
-pub async fn create_quote(pool: &Pool<Sqlite>, request: CreateQuoteRequest) -> Result<QuoteWithTags, sqlx::Error> {
+pub async fn create_quote(
+    pool: &Pool<Sqlite>,
+    request: CreateQuoteRequest,
+) -> Result<QuoteWithTags, sqlx::Error> {
     let now = Utc::now();
 
     // Insert the quote
@@ -194,9 +197,9 @@ pub async fn create_quote(pool: &Pool<Sqlite>, request: CreateQuoteRequest) -> R
         now,
         now
     )
-        .execute(pool)
-        .await?
-        .last_insert_rowid();
+    .execute(pool)
+    .await?
+    .last_insert_rowid();
 
     // Insert tags if provided
     let mut tag_names = Vec::new();
@@ -216,8 +219,8 @@ pub async fn create_quote(pool: &Pool<Sqlite>, request: CreateQuoteRequest) -> R
                 now,
                 now
             )
-                .execute(pool)
-                .await?;
+            .execute(pool)
+            .await?;
         }
 
         tag_names = unique_tags.into_iter().collect();
@@ -236,7 +239,11 @@ pub async fn create_quote(pool: &Pool<Sqlite>, request: CreateQuoteRequest) -> R
 }
 
 // Function to update an existing quote
-pub async fn update_quote(pool: &Pool<Sqlite>, quote_id: i64, request: UpdateQuoteRequest) -> Result<Option<QuoteWithTags>, sqlx::Error> {
+pub async fn update_quote(
+    pool: &Pool<Sqlite>,
+    quote_id: i64,
+    request: UpdateQuoteRequest,
+) -> Result<Option<QuoteWithTags>, sqlx::Error> {
     let now = Utc::now();
 
     // First, check if the quote exists and get its creation timestamp
@@ -244,8 +251,8 @@ pub async fn update_quote(pool: &Pool<Sqlite>, quote_id: i64, request: UpdateQuo
         "SELECT created_at as \"created_at: DateTime<Utc>\" FROM quotes WHERE id = ?",
         quote_id
     )
-        .fetch_optional(pool)
-        .await?;
+    .fetch_optional(pool)
+    .await?;
 
     if existing_quote.is_none() {
         return Ok(None); // Quote doesn't exist
@@ -261,14 +268,11 @@ pub async fn update_quote(pool: &Pool<Sqlite>, quote_id: i64, request: UpdateQuo
         now,
         quote_id
     )
-        .execute(pool)
-        .await?;
+    .execute(pool)
+    .await?;
 
     // Delete existing tags for this quote
-    sqlx::query!(
-        "DELETE FROM tags WHERE quote_id = ?",
-        quote_id
-    )
+    sqlx::query!("DELETE FROM tags WHERE quote_id = ?", quote_id)
         .execute(pool)
         .await?;
 
@@ -290,8 +294,8 @@ pub async fn update_quote(pool: &Pool<Sqlite>, quote_id: i64, request: UpdateQuo
                 now,
                 now
             )
-                .execute(pool)
-                .await?;
+            .execute(pool)
+            .await?;
         }
 
         tag_names = unique_tags.into_iter().collect();
@@ -309,8 +313,31 @@ pub async fn update_quote(pool: &Pool<Sqlite>, quote_id: i64, request: UpdateQuo
     }))
 }
 
+// Function to delete a quote by ID
+pub async fn delete_quote(pool: &Pool<Sqlite>, quote_id: i64) -> Result<bool, sqlx::Error> {
+    // First check if the quote exists
+    let exists = sqlx::query!("SELECT id FROM quotes WHERE id = ?", quote_id)
+        .fetch_optional(pool)
+        .await?;
+
+    if exists.is_none() {
+        return Ok(false); // Quote doesn't exist
+    }
+
+    // Delete the quote (tags will be deleted automatically due to CASCADE)
+    let result = sqlx::query!("DELETE FROM quotes WHERE id = ?", quote_id)
+        .execute(pool)
+        .await?;
+
+    // Return true if a row was affected (deleted)
+    Ok(result.rows_affected() > 0)
+}
+
 // Function to get a quote by ID
-pub async fn get_quote_by_id(pool: &Pool<Sqlite>, quote_id: i64) -> Result<Option<QuoteWithTags>, sqlx::Error> {
+pub async fn get_quote_by_id(
+    pool: &Pool<Sqlite>,
+    quote_id: i64,
+) -> Result<Option<QuoteWithTags>, sqlx::Error> {
     // Query the specific quote
     let quote = sqlx::query_as!(
         Quote,
