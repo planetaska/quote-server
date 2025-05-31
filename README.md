@@ -66,7 +66,11 @@ The server will be available at: `http://localhost:3000`
 
 ### API Endpoints
 - `GET /api/v1/quotes` - Get all quotes as JSON
+- `GET /api/v1/quotes/{id}` - Get a specific quote by ID as JSON
 - `GET /api/v1/quotes/random` - Get a random quote as JSON
+- `POST /api/v1/quotes` - Create a new quote
+- `PUT /api/v1/quotes/{id}` - Update an existing quote
+- `DELETE /api/v1/quotes/{id}` - Delete a quote by ID
 
 ### Documentation
 - `GET /swagger-ui` - Interactive Swagger UI for API exploration
@@ -154,6 +158,13 @@ To build for release:
 
 ```bash
 cargo build --release
+```
+
+If you changed database schema, make sure to set DATABASE_URL env and re-run the sqlx generation:
+
+```bash
+export DATABASE_URL=sqlite://db/quotes.db
+cargo sqlx prepare
 ```
 
 ## Author
