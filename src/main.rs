@@ -6,6 +6,7 @@
 //!
 mod db;
 mod templates;
+mod api;
 
 use axum::{Router, extract::State, response::Json, routing::get};
 use db::{QuoteWithTags, init_db};
