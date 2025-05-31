@@ -78,7 +78,11 @@ The server will be available at: `http://localhost:3000`
 
 ## API Documentation
 
-You can explore the API interactively using the Swagger UI at `http://localhost:3000/swagger-ui`.
+You can explore the API interactively using the Swagger UI at:
+
+```
+http://localhost:3000/swagger-ui
+```
 
 ### Example API Response
 
