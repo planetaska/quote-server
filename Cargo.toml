@@ -37,3 +37,9 @@ features = ["env-filter"]
 [dependencies.sqlx]
 version = "0.8.5"
 features = ["runtime-tokio", "sqlite", "derive", "macros", "migrate", "chrono", "json"]
+
+[dependencies.utoipa]
+#version = "5.3.1"
+git = "https://github.com/juhaku/utoipa.git"
+rev = "cecda0531bf7d90800af66b186055932ee730526"
+features = ["axum_extras"]
