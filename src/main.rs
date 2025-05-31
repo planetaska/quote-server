@@ -2,23 +2,27 @@
 //!
 //! Handles HTTP server setup, routing configuration, and API endpoints.
 //! Initializes the database connection pool and serves both HTML templates
-//! and JSON API responses.
+//! and JSON API responses with OpenAPI documentation.
 //!
 mod db;
 mod templates;
 mod api;
 
-use axum::{Router, extract::State, response::Json, routing::get};
-use db::{QuoteWithTags, init_db};
+use api::{ApiDoc, create_api_router};
+use axum::Router;
+use db::init_db;
 use sqlx::SqlitePool;
 use std::path::PathBuf;
 use templates::{about_page, index_page, quotes_page, random_quote_page};
 use tower_http::{services::ServeDir, trace};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use utoipa::OpenApi;
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_swagger_ui::SwaggerUi;
 
 #[derive(Clone)]
-struct AppState {
+pub struct AppState {
     pool: SqlitePool,
 }
 
@@ -41,31 +45,26 @@ fn app(state: AppState) -> Router {
     let assets_path = PathBuf::from("assets/static");
     let static_files_service = ServeDir::new(assets_path);
 
+    // Create OpenAPI router for API routes
+    let (api_router, api_schema) = OpenApiRouter::with_openapi(ApiDoc::openapi())
+        .merge(create_api_router())
+        .split_for_parts();
+
     // build routes
     Router::new()
-        .route("/", get(index_page))
-        .route("/about", get(about_page))
-        .route("/quotes", get(quotes_page))
-        .route("/api/v1/quotes", get(get_all_quotes))
-        .route("/api/v1/quotes/random", get(get_random_quote))
-        .route("/quote/random", get(random_quote_page))
+        // HTML template routes
+        .route("/", axum::routing::get(index_page))
+        .route("/about", axum::routing::get(about_page))
+        .route("/quotes", axum::routing::get(quotes_page))
+        .route("/quote/random", axum::routing::get(random_quote_page))
+        // Merge API routes
+        .merge(api_router)
+        // OpenAPI documentation routes
+        .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api_schema))
+        // Static files
         .nest_service("/static", static_files_service)
         .with_state(state)
         .layer(trace_layer)
-}
-
-async fn get_all_quotes(State(state): State<AppState>) -> Json<Vec<QuoteWithTags>> {
-    let quotes = db::get_all_quotes(&state.pool)
-        .await
-        .expect("Failed to get quotes");
-    Json(quotes)
-}
-
-async fn get_random_quote(State(state): State<AppState>) -> Json<Option<QuoteWithTags>> {
-    let quote = db::get_random_quote(&state.pool)
-        .await
-        .expect("Failed to get random quote");
-    Json(quote)
 }
 
 #[tokio::main]
@@ -84,6 +83,7 @@ async fn main() -> Result<(), AppError> {
 
     if let Ok(addr) = listener.local_addr() {
         info!("Listening on http://{addr}/");
+        info!("OpenAPI documentation available at http://{addr}/swagger-ui");
     }
 
     axum::serve(listener, app).await.map_err(AppError::Run)
@@ -121,11 +121,11 @@ mod tests {
             "INSERT INTO quotes (quote, source, created_at, updated_at) 
              VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
         )
-        .bind("Test quote")
-        .bind("Test source")
-        .execute(&pool)
-        .await
-        .unwrap();
+            .bind("Test quote")
+            .bind("Test source")
+            .execute(&pool)
+            .await
+            .unwrap();
 
         // Create app state
         let state = AppState { pool };
@@ -145,7 +145,7 @@ mod tests {
         let response = app
             .oneshot(
                 Request::builder()
-                    .uri("/api/quotes/random")
+                    .uri("/api/v1/quotes/random")
                     .body(Body::empty())
                     .unwrap(),
             )

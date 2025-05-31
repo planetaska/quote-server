@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite, migrate::MigrateDatabase, sqlite::SqlitePoolOptions};
 use std::{collections::HashSet, fs, path::Path};
 use tracing::info;
+use utoipa::ToSchema;
 
 const DB_URL: &str = "sqlite://db/quotes.db";
 
@@ -37,13 +38,25 @@ pub struct Tag {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct QuoteWithTags {
+    /// Unique identifier for the quote
+    #[schema(example = 1)]
     pub id: i64,
+    /// The actual quote text
+    #[schema(example = "The only way to do great work is to love what you do.")]
     pub quote: String,
+    /// Source or author of the quote
+    #[schema(example = "Steve Jobs")]
     pub source: String,
+    /// Timestamp when the quote was created
+    #[schema(value_type = String, format = DateTime, example = "2024-01-01T12:00:00Z")]
     pub created_at: DateTime<Utc>,
+    /// Timestamp when the quote was last updated
+    #[schema(value_type = String, format = DateTime, example = "2024-01-01T12:00:00Z")]
     pub updated_at: DateTime<Utc>,
+    /// List of tags associated with the quote
+    #[schema(example = json!(["motivation", "work", "success"]))]
     pub tags: Vec<String>,
 }
 
@@ -109,9 +122,9 @@ async fn import_quotes_from_csv(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> 
             now,
             now
         )
-        .execute(pool)
-        .await?
-        .last_insert_rowid();
+            .execute(pool)
+            .await?
+            .last_insert_rowid();
 
         // Process tags
         if !quote.tags.is_empty() {
@@ -133,8 +146,8 @@ async fn import_quotes_from_csv(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> 
                     now,
                     now
                 )
-                .execute(pool)
-                .await?;
+                    .execute(pool)
+                    .await?;
             }
         }
     }
