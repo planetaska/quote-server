@@ -56,8 +56,8 @@ The server will be available at: `http://localhost:3000`
 - `GET /about` - About page with technical details
 - `GET /quotes` - View all quotes
 - `GET /quote/random` - View a random quote
-- `GET /api/quotes` - API endpoint to get all quotes as JSON
-- `GET /api/quotes/random` - API endpoint to get a random quote as JSON
+- `GET /api/v1/quotes` - API endpoint to get all quotes as JSON
+- `GET /api/v1/quotes/random` - API endpoint to get a random quote as JSON
 
 ## Database Structure
 
