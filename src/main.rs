@@ -15,6 +15,7 @@ use sqlx::SqlitePool;
 use std::path::PathBuf;
 use templates::{about_page, index_page, quotes_page, random_quote_page};
 use tower_http::{services::ServeDir, trace};
+use tower_http::cors::CorsLayer;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use utoipa::OpenApi;
@@ -50,6 +51,10 @@ fn app(state: AppState) -> Router {
         .merge(create_api_router())
         .split_for_parts();
 
+    // Configure CORS
+    let cors = CorsLayer::new()
+        .allow_origin("http://localhost:8080".parse::<axum::http::HeaderValue>().unwrap());
+
     // build routes
     Router::new()
         // HTML template routes
@@ -64,6 +69,7 @@ fn app(state: AppState) -> Router {
         // Static files
         .nest_service("/static", static_files_service)
         .with_state(state)
+        .layer(cors)
         .layer(trace_layer)
 }
 
