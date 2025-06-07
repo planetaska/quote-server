@@ -379,7 +379,7 @@ pub async fn get_all_quotes(pool: &Pool<Sqlite>) -> Result<Vec<QuoteWithTags>, s
     // Query all quotes
     let quotes = sqlx::query_as!(
         Quote,
-        "SELECT id, quote, source, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\" FROM quotes"
+        "SELECT id, quote, source, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\" FROM quotes ORDER BY created_at DESC"
     )
         .fetch_all(pool)
         .await?;

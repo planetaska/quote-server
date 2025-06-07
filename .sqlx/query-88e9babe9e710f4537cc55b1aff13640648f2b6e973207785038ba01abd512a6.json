@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id, quote, source, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\" FROM quotes",
+  "query": "SELECT id, quote, source, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\" FROM quotes ORDER BY created_at DESC",
   "describe": {
     "columns": [
       {
@@ -40,5 +40,5 @@
       false
     ]
   },
-  "hash": "3e787b19dcd2e6d4f8122c5ae3808997bdad00e3c5c65eff2a99eb6c120705d7"
+  "hash": "88e9babe9e710f4537cc55b1aff13640648f2b6e973207785038ba01abd512a6"
 }
