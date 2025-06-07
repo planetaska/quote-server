@@ -9,7 +9,7 @@ mod db;
 mod templates;
 
 use api::{ApiDoc, create_api_router};
-use axum::Router;
+use axum::{Router, http::header::HeaderValue};
 use db::init_db;
 use sqlx::SqlitePool;
 use std::path::PathBuf;
@@ -52,8 +52,16 @@ fn app(state: AppState) -> Router {
         .split_for_parts();
 
     // Configure CORS
+    
     let cors = CorsLayer::new()
-        .allow_origin("http://localhost:8080".parse::<axum::http::HeaderValue>().unwrap());
+        .allow_origin(vec![HeaderValue::from_static("http://localhost:8080")])
+        .allow_headers([axum::http::header::CONTENT_TYPE])
+        .allow_methods([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::PUT,
+            axum::http::Method::DELETE,
+        ]);
 
     // build routes
     Router::new()
