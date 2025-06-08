@@ -2,12 +2,17 @@
 
 A simple web server that serves inspirational quotes using Rust, Axum web framework, and Askama templating engine with SQLite database storage. Features a RESTful API with OpenAPI documentation and interactive Swagger UI.
 
+## Author
+
+Chia-Wei Hsu (chiawei@pdx.edu)
+
 ## Features
 
 - Get a random quote
 - Browse all quotes in the database
 - RESTful API for programmatic access with OpenAPI documentation
 - Interactive Swagger UI for API exploration
+- JWT authentication for protected endpoints
 - Automatic database initialization from CSV
 
 ## Technology Stack
@@ -16,31 +21,29 @@ A simple web server that serves inspirational quotes using Rust, Axum web framew
 - **Axum** - Web framework
 - **Askama** - Templating engine
 - **SQLite** - Database for storing quotes and tags
+- **jsonwebtoken** - JWT authentication
 - **utoipa** - OpenAPI documentation generation
 - **Swagger UI** - Interactive API documentation
 
 ## Dependencies
 
-- askama = "0.14.0"
-- axum = "0.8.3"
-- fastrand = "2.3.0"
-- serde = { version = "1.0.219", features = ["derive"] }
-- serde_json = "1.0.140"
-- tokio = { version = "1.44.2", features = ["full"] }
+- askama
+- axum
+- serde
+- tokio
 - tower-http = { version = "0.6.2", features = ["fs", "trace"] }
-- tracing = "0.1.41"
-- sqlx = { version = "0.8.5", features = ["runtime-tokio", "sqlite", "derive", "macros", "migrate", "chrono", "json"] }
-- csv = "1.3.0"
-- utoipa (with chrono feature) - OpenAPI documentation
-- utoipa-axum - Axum integration for utoipa
-- utoipa-swagger-ui - Swagger UI integration
+- sqlx
+- jsonwebtoken
+- utoipa
+- See `Cargo.toml` for a complete list
 
 ## Setup
 
 1. Make sure you have Rust installed
 2. Clone this repository
 3. Run `cargo build --release` to compile the project
-4. The application will automatically:
+4. Create a `credentials.txt` file with your JWT secret (or set `JWT_SECRET` environment variable)
+5. The application will automatically:
    - Create a `db` directory if it doesn't exist
    - Initialize a SQLite database at `db/quotes.db`
    - Run all database migrations from the `migrations` folder
@@ -68,9 +71,10 @@ The server will be available at: `http://localhost:3000`
 - `GET /api/v1/quotes` - Get all quotes as JSON
 - `GET /api/v1/quotes/{id}` - Get a specific quote by ID as JSON
 - `GET /api/v1/quotes/random` - Get a random quote as JSON
-- `POST /api/v1/quotes` - Create a new quote
-- `PUT /api/v1/quotes/{id}` - Update an existing quote
-- `DELETE /api/v1/quotes/{id}` - Delete a quote by ID
+- `POST /api/v1/quotes` - Create a new quote (requires JWT authentication)
+- `PUT /api/v1/quotes/{id}` - Update an existing quote (requires JWT authentication)
+- `DELETE /api/v1/quotes/{id}` - Delete a quote by ID (requires JWT authentication)
+- `POST /auth` - Register and get JWT token
 
 ### Documentation
 - `GET /swagger-ui` - Interactive Swagger UI for API exploration
@@ -82,6 +86,21 @@ You can explore the API interactively using the Swagger UI at:
 
 ```
 http://localhost:3000/swagger-ui
+```
+
+### Authentication
+
+Protected endpoints require JWT authentication. Register with your credentials to get a token:
+
+```bash
+curl -X POST http://localhost:3000/auth \
+  -H "Content-Type: application/json" \
+  -d '{"full_name": "Your Name", "email": "your@email.com", "password": "your_secret"}'
+```
+
+Use the returned token in the Authorization header:
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:3000/api/v1/quotes
 ```
 
 ### Example API Response
@@ -142,6 +161,7 @@ tags
 │   └── 20250425231048_create_tags.down.sql
 ├── src/
 │   ├── api.rs                  # API endpoints with OpenAPI documentation
+│   ├── authjwt.rs              # JWT authentication module
 │   ├── db.rs                   # Database interaction code
 │   ├── main.rs                 # Application entry point and routing
 │   └── templates.rs            # Template handling code
@@ -170,7 +190,3 @@ If you changed database schema, make sure to set DATABASE_URL env and re-run the
 export DATABASE_URL=sqlite://db/quotes.db
 cargo sqlx prepare
 ```
-
-## Author
-
-Chia-Wei Hsu (chiawei@pdx.edu)
