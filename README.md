@@ -52,6 +52,8 @@ Chia-Wei Hsu (chiawei@pdx.edu)
 
 ## Running the Application
 
+### Local Development
+
 Start the server with:
 
 ```bash
@@ -59,6 +61,23 @@ cargo run --release
 ```
 
 The server will be available at: `http://localhost:3000`
+
+### Docker
+
+Build and run using Docker:
+
+```bash
+# Build the Docker image
+docker build -t quote-server .
+
+# Run the container (uses built-in database)
+docker run -p 3000:3000 quote-server
+
+# Run with persistent database (optional)
+docker run -p 3000:3000 -v $(pwd)/db:/app/db quote-server
+```
+
+The container includes a pre-initialized database with all migrations and default quotes. If you mount a volume to `/app/db`, the container will use your existing database if present, or copy the built-in database to the mounted location if not found.
 
 ## Available Endpoints
 
