@@ -59,7 +59,10 @@ fn app(state: AppState) -> Router {
 
     let cors = CorsLayer::new()
         .allow_origin(vec![HeaderValue::from_static("http://localhost:8080")])
-        .allow_headers([axum::http::header::CONTENT_TYPE])
+        .allow_headers([
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::AUTHORIZATION,
+        ])
         .allow_methods([
             axum::http::Method::GET,
             axum::http::Method::POST,
