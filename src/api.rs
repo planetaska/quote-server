@@ -5,15 +5,19 @@
 //!
 use crate::{
     AppState,
+    authjwt::{self, Claims, Registration},
     db::{self, CreateQuoteRequest, QuoteWithTags, UpdateQuoteRequest},
 };
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    response::Json,
-    routing::get,
+    response::{IntoResponse, Json},
+    routing::{get, post},
 };
-use utoipa::OpenApi;
+use utoipa::{
+    Modify, OpenApi,
+    openapi::security::{Http, HttpAuthScheme, SecurityScheme},
+};
 
 /// OpenAPI documentation for the Quotes API
 #[derive(OpenApi)]
@@ -24,13 +28,15 @@ use utoipa::OpenApi;
         get_random_quote,
         create_quote,
         update_quote,
-        delete_quote
+        delete_quote,
+        register
     ),
     components(
-        schemas(QuoteWithTags, CreateQuoteRequest, UpdateQuoteRequest)
+        schemas(QuoteWithTags, CreateQuoteRequest, UpdateQuoteRequest, Registration, authjwt::AuthBody)
     ),
     tags(
-        (name = "quotes", description = "Quote management endpoints")
+        (name = "quotes", description = "Quote management endpoints"),
+        (name = "auth", description = "Authentication endpoints")
     ),
     info(
         title = "Quotes Server API",
@@ -40,9 +46,22 @@ use utoipa::OpenApi;
             name = "Chia-Wei Hsu",
             email = "chiawei@pdx.edu"
         )
-    )
+    ),
+    modifiers(&SecurityAddon)
 )]
 pub struct ApiDoc;
+
+struct SecurityAddon;
+
+impl Modify for SecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        let components = openapi.components.as_mut().unwrap();
+        components.add_security_scheme(
+            "bearer_auth",
+            SecurityScheme::Http(Http::new(HttpAuthScheme::Bearer)),
+        )
+    }
+}
 
 /// Get all quotes from the database
 ///
@@ -118,7 +137,7 @@ pub async fn get_random_quote(State(state): State<AppState>) -> Json<Option<Quot
     Json(quote)
 }
 
-/// Create a new quote
+/// Create a new quote (requires authentication)
 ///
 /// Creates a new quote with optional tags and returns the created quote with its assigned ID.
 #[utoipa::path(
@@ -128,11 +147,16 @@ pub async fn get_random_quote(State(state): State<AppState>) -> Json<Option<Quot
     responses(
         (status = 201, description = "Quote successfully created", body = QuoteWithTags),
         (status = 400, description = "Invalid request body"),
+        (status = 401, description = "Unauthorized"),
         (status = 500, description = "Internal server error")
     ),
-    tag = "quotes"
+    tag = "quotes",
+    security(
+        ("bearer_auth" = [])
+    )
 )]
 pub async fn create_quote(
+    _claims: Claims,
     State(state): State<AppState>,
     Json(request): Json<CreateQuoteRequest>,
 ) -> Result<(StatusCode, Json<QuoteWithTags>), (StatusCode, String)> {
@@ -163,7 +187,7 @@ pub async fn create_quote(
     }
 }
 
-/// Update an existing quote
+/// Update an existing quote (requires authentication)
 ///
 /// Updates an existing quote by ID with new quote text, source, and tags. All existing tags are replaced with the provided ones.
 #[utoipa::path(
@@ -176,12 +200,17 @@ pub async fn create_quote(
     responses(
         (status = 200, description = "Quote successfully updated", body = QuoteWithTags),
         (status = 400, description = "Invalid request body"),
+        (status = 401, description = "Unauthorized"),
         (status = 404, description = "Quote not found"),
         (status = 500, description = "Internal server error")
     ),
-    tag = "quotes"
+    tag = "quotes",
+    security(
+        ("bearer_auth" = [])
+    )
 )]
 pub async fn update_quote(
+    _claims: Claims,
     State(state): State<AppState>,
     Path(id): Path<i64>,
     Json(request): Json<UpdateQuoteRequest>,
@@ -217,7 +246,7 @@ pub async fn update_quote(
     }
 }
 
-/// Delete a quote by ID
+/// Delete a quote by ID (requires authentication)
 ///
 /// Permanently removes a quote and all its associated tags from the database.
 #[utoipa::path(
@@ -228,12 +257,17 @@ pub async fn update_quote(
     ),
     responses(
         (status = 204, description = "Quote successfully deleted"),
+        (status = 401, description = "Unauthorized"),
         (status = 404, description = "Quote not found"),
         (status = 500, description = "Internal server error")
     ),
-    tag = "quotes"
+    tag = "quotes",
+    security(
+        ("bearer_auth" = [])
+    )
 )]
 pub async fn delete_quote(
+    _claims: Claims,
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Result<StatusCode, (StatusCode, String)> {
@@ -253,9 +287,35 @@ pub async fn delete_quote(
     }
 }
 
+/// User registration and authentication
+///
+/// Authenticates a user with their credentials and returns a JWT token for accessing protected endpoints.
+#[utoipa::path(
+    post,
+    path = "/auth",
+    request_body = Registration,
+    responses(
+        (status = 200, description = "User successfully authenticated", body = authjwt::AuthBody),
+        (status = 400, description = "Invalid registration data"),
+        (status = 401, description = "Wrong credentials"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "auth"
+)]
+pub async fn register(
+    State(state): State<AppState>,
+    Json(registration): Json<Registration>,
+) -> axum::response::Response {
+    match authjwt::make_jwt_token(&state.jwt_keys, &state.reg_key, &registration) {
+        Ok(token) => (StatusCode::OK, Json(token)).into_response(),
+        Err(e) => e.into_response(),
+    }
+}
+
 /// Create API router with all quote-related endpoints
 pub fn create_api_router() -> utoipa_axum::router::OpenApiRouter<AppState> {
     utoipa_axum::router::OpenApiRouter::new()
+        .route("/auth", post(register))
         .route("/api/v1/quotes", get(get_all_quotes).post(create_quote))
         .route("/api/v1/quotes/random", get(get_random_quote))
         .route(

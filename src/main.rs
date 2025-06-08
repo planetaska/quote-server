@@ -5,17 +5,19 @@
 //! and JSON API responses with OpenAPI documentation.
 //!
 mod api;
+mod authjwt;
 mod db;
 mod templates;
 
 use api::{ApiDoc, create_api_router};
+use authjwt::{JwtKeys, make_jwt_keys, read_secret};
 use axum::{Router, http::header::HeaderValue};
 use db::init_db;
 use sqlx::SqlitePool;
 use std::path::PathBuf;
 use templates::{about_page, index_page, quotes_page, random_quote_page};
-use tower_http::{services::ServeDir, trace};
 use tower_http::cors::CorsLayer;
+use tower_http::{services::ServeDir, trace};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use utoipa::OpenApi;
@@ -25,6 +27,8 @@ use utoipa_swagger_ui::SwaggerUi;
 #[derive(Clone)]
 pub struct AppState {
     pool: SqlitePool,
+    jwt_keys: JwtKeys,
+    reg_key: String,
 }
 
 fn app(state: AppState) -> Router {
@@ -52,7 +56,7 @@ fn app(state: AppState) -> Router {
         .split_for_parts();
 
     // Configure CORS
-    
+
     let cors = CorsLayer::new()
         .allow_origin(vec![HeaderValue::from_static("http://localhost:8080")])
         .allow_headers([axum::http::header::CONTENT_TYPE])
@@ -76,7 +80,8 @@ fn app(state: AppState) -> Router {
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", api_schema))
         // Static files
         .nest_service("/static", static_files_service)
-        .with_state(state)
+        .with_state(state.clone())
+        .layer(axum::Extension(state.jwt_keys.clone()))
         .layer(cors)
         .layer(trace_layer)
 }
@@ -85,7 +90,18 @@ fn app(state: AppState) -> Router {
 async fn main() -> Result<(), AppError> {
     // Initialize database
     let pool = init_db().await.map_err(AppError::Database)?;
-    let state = AppState { pool };
+
+    // Initialize JWT authentication
+    let jwt_keys = make_jwt_keys().await.map_err(AppError::Auth)?;
+    let reg_key = read_secret("REG_PASSWORD", "./credentials.txt")
+        .await
+        .map_err(AppError::Auth)?;
+
+    let state = AppState {
+        pool,
+        jwt_keys,
+        reg_key,
+    };
 
     // build application with routes
     let app = app(state);
@@ -111,6 +127,8 @@ enum AppError {
     Run(#[source] std::io::Error),
     /// database error
     Database(#[source] sqlx::Error),
+    /// authentication error
+    Auth(#[source] Box<dyn std::error::Error>),
 }
 
 #[cfg(test)]
@@ -141,8 +159,14 @@ mod tests {
         .await
         .unwrap();
 
-        // Create app state
-        let state = AppState { pool };
+        // Create app state (for testing)
+        let jwt_keys = JwtKeys::new(b"test-secret");
+        let reg_key = "test-password".to_string();
+        let state = AppState {
+            pool,
+            jwt_keys,
+            reg_key,
+        };
 
         // Create app with test state
         let app = app(state);
