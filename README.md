@@ -48,6 +48,7 @@ Chia-Wei Hsu (chiawei@pdx.edu)
    - Initialize a SQLite database at `db/quotes.db`
    - Run all database migrations from the `migrations` folder
    - Import default quotes from `assets/static/default_quotes.csv` if the database is empty
+6. (Optional) A WASM [Quote Client](https://github.com/planetaska/quote-client) is also available for accessing the server.
 
 ## Running the Application
 
