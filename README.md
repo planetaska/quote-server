@@ -210,3 +210,7 @@ If you changed database schema, make sure to set DATABASE_URL env and re-run the
 export DATABASE_URL=sqlite://db/quotes.db
 cargo sqlx prepare
 ```
+
+## License
+
+MIT license
