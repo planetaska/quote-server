@@ -4,10 +4,11 @@
 //! conversion from template objects into HTTP responses.
 //!
 use crate::AppState;
+use crate::api::SearchParams;
 use crate::db::{self, QuoteWithTags};
 use askama::Template;
 use axum::{
-    extract::State,
+    extract::{Query, State},
     http::StatusCode,
     response::{Html, IntoResponse, Response},
 };
@@ -31,6 +32,9 @@ pub struct AboutTemplate {
 pub struct QuotesTemplate {
     pub quotes: Vec<QuoteWithTags>,
     pub active_page: String,
+    pub quote_value: String,
+    pub source_value: String,
+    pub tag_value: String,
 }
 
 #[derive(Template)]
@@ -78,12 +82,27 @@ pub async fn about_page() -> impl IntoResponse {
     HtmlTemplate(template)
 }
 
-pub async fn quotes_page(State(state): State<AppState>) -> impl IntoResponse {
-    let quotes = db::get_all_quotes(&state.pool).await.unwrap_or_default();
+pub async fn quotes_page(
+    State(state): State<AppState>,
+    Query(search_params): Query<SearchParams>,
+) -> impl IntoResponse {
+    let quotes = db::search_quotes(
+        &state.pool,
+        SearchParams {
+            quote: search_params.quote.clone(),
+            source: search_params.source.clone(),
+            tag: search_params.tag.clone(),
+        },
+    )
+    .await
+    .unwrap_or_default();
 
     let template = QuotesTemplate {
         quotes,
         active_page: "quotes".to_string(),
+        quote_value: search_params.quote.unwrap_or_default(),
+        source_value: search_params.source.unwrap_or_default(),
+        tag_value: search_params.tag.unwrap_or_default(),
     };
     HtmlTemplate(template)
 }

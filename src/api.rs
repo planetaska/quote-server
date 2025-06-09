@@ -9,15 +9,29 @@ use crate::{
     db::{self, CreateQuoteRequest, QuoteWithTags, UpdateQuoteRequest},
 };
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
     routing::{get, post},
 };
+use serde::Deserialize;
 use utoipa::{
-    Modify, OpenApi,
+    IntoParams, Modify, OpenApi,
     openapi::security::{Http, HttpAuthScheme, SecurityScheme},
 };
+
+#[derive(Debug, Deserialize, IntoParams, utoipa::ToSchema)]
+pub struct SearchParams {
+    /// Search within quote text
+    #[param(example = "imagination")]
+    pub quote: Option<String>,
+    /// Search within source/author
+    #[param(example = "Einstein")]
+    pub source: Option<String>,
+    /// Search within tags
+    #[param(example = "creativity")]
+    pub tag: Option<String>,
+}
 
 /// OpenAPI documentation for the Quotes API
 #[derive(OpenApi)]
@@ -32,7 +46,7 @@ use utoipa::{
         register
     ),
     components(
-        schemas(QuoteWithTags, CreateQuoteRequest, UpdateQuoteRequest, Registration, authjwt::AuthBody)
+        schemas(QuoteWithTags, CreateQuoteRequest, UpdateQuoteRequest, Registration, authjwt::AuthBody, SearchParams)
     ),
     tags(
         (name = "quotes", description = "Quote management endpoints"),
@@ -63,20 +77,24 @@ impl Modify for SecurityAddon {
     }
 }
 
-/// Get all quotes from the database
+/// Get all quotes from the database with optional search filters
 ///
-/// Returns a list of all quotes with their associated tags.
+/// Returns a list of quotes with their associated tags. Can be filtered by quote text, source, or tags.
 #[utoipa::path(
     get,
     path = "/api/v1/quotes",
+    params(SearchParams),
     responses(
-        (status = 200, description = "List of all quotes successfully retrieved", body = Vec<QuoteWithTags>),
+        (status = 200, description = "List of quotes successfully retrieved", body = Vec<QuoteWithTags>),
         (status = 500, description = "Internal server error")
     ),
     tag = "quotes"
 )]
-pub async fn get_all_quotes(State(state): State<AppState>) -> Json<Vec<QuoteWithTags>> {
-    let quotes = db::get_all_quotes(&state.pool)
+pub async fn get_all_quotes(
+    State(state): State<AppState>,
+    Query(params): Query<SearchParams>,
+) -> Json<Vec<QuoteWithTags>> {
+    let quotes = db::search_quotes(&state.pool, params)
         .await
         .expect("Failed to get quotes");
     Json(quotes)

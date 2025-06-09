@@ -5,6 +5,62 @@
 {% block content %}
 <h1>All Quotes</h1>
 
+<div class="search-container">
+    <button type="button" class="search-toggle" onclick="toggleSearch()">
+        <span id="search-toggle-text">Show Search</span>
+        <span id="search-toggle-icon">▼</span>
+    </button>
+    <form method="GET" action="/quotes" class="search-form" id="search-form" style="display: none;">
+        <div class="search-fields">
+            <div class="search-field">
+                <label for="quote">Quote contains:</label>
+                <input type="text" id="quote" name="quote" value="{{ quote_value }}" placeholder="Search quote text...">
+            </div>
+            <div class="search-field">
+                <label for="source">Source contains:</label>
+                <input type="text" id="source" name="source" value="{{ source_value }}" placeholder="Search author/source...">
+            </div>
+            <div class="search-field">
+                <label for="tag">Tag contains:</label>
+                <input type="text" id="tag" name="tag" value="{{ tag_value }}" placeholder="Search tags...">
+            </div>
+        </div>
+        <div class="search-buttons">
+            <button type="submit" class="search-button">Search</button>
+            <a href="/quotes" class="clear-button">Clear</a>
+        </div>
+    </form>
+</div>
+
+<script>
+function toggleSearch() {
+    const form = document.getElementById('search-form');
+    const toggleText = document.getElementById('search-toggle-text');
+    const toggleIcon = document.getElementById('search-toggle-icon');
+    
+    if (form.style.display === 'none') {
+        form.style.display = 'flex';
+        toggleText.textContent = 'Hide Search';
+        toggleIcon.textContent = '▲';
+    } else {
+        form.style.display = 'none';
+        toggleText.textContent = 'Show Search';
+        toggleIcon.textContent = '▼';
+    }
+}
+
+// Show search form if there are active search parameters
+document.addEventListener('DOMContentLoaded', function() {
+    const quoteValue = "{{ quote_value }}";
+    const sourceValue = "{{ source_value }}";
+    const tagValue = "{{ tag_value }}";
+    
+    if (quoteValue || sourceValue || tagValue) {
+        toggleSearch();
+    }
+});
+</script>
+
 {% if quotes.is_empty() %}
 <p>No quotes found.</p>
 {% else %}

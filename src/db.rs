@@ -374,15 +374,110 @@ pub async fn get_quote_by_id(
     }
 }
 
-// Function to get all quotes with their tags
-pub async fn get_all_quotes(pool: &Pool<Sqlite>) -> Result<Vec<QuoteWithTags>, sqlx::Error> {
-    // Query all quotes
-    let quotes = sqlx::query_as!(
-        Quote,
-        "SELECT id, quote, source, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\" FROM quotes ORDER BY created_at DESC"
-    )
-        .fetch_all(pool)
-        .await?;
+// Function to search quotes with optional filters
+pub async fn search_quotes(
+    pool: &Pool<Sqlite>,
+    search_params: crate::api::SearchParams,
+) -> Result<Vec<QuoteWithTags>, sqlx::Error> {
+    // Convert empty strings to None for proper matching
+    let quote_param = search_params.quote.filter(|s| !s.trim().is_empty());
+    let source_param = search_params.source.filter(|s| !s.trim().is_empty());
+    let tag_param = search_params.tag.filter(|s| !s.trim().is_empty());
+
+    // Handle different search scenarios with specific queries
+    let quotes = match (&quote_param, &source_param, &tag_param) {
+        // No search parameters - return all quotes
+        (None, None, None) => {
+            sqlx::query_as!(
+                Quote,
+                "SELECT id, quote, source, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\" FROM quotes ORDER BY created_at DESC"
+            )
+            .fetch_all(pool)
+            .await?
+        }
+        // Only quote search
+        (Some(quote_text), None, None) => {
+            let search_pattern = format!("%{}%", quote_text.trim());
+            sqlx::query_as!(
+                Quote,
+                "SELECT id, quote, source, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\" FROM quotes WHERE quote LIKE ? ORDER BY created_at DESC",
+                search_pattern
+            )
+            .fetch_all(pool)
+            .await?
+        }
+        // Only source search
+        (None, Some(source_text), None) => {
+            let search_pattern = format!("%{}%", source_text.trim());
+            sqlx::query_as!(
+                Quote,
+                "SELECT id, quote, source, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\" FROM quotes WHERE source LIKE ? ORDER BY created_at DESC",
+                search_pattern
+            )
+            .fetch_all(pool)
+            .await?
+        }
+        // Only tag search
+        (None, None, Some(tag_text)) => {
+            let search_pattern = format!("%{}%", tag_text.trim());
+            sqlx::query_as!(
+                Quote,
+                "SELECT DISTINCT quotes.id, quotes.quote, quotes.source, quotes.created_at as \"created_at: DateTime<Utc>\", quotes.updated_at as \"updated_at: DateTime<Utc>\" FROM quotes INNER JOIN tags ON quotes.id = tags.quote_id WHERE tags.name LIKE ? ORDER BY quotes.created_at DESC",
+                search_pattern
+            )
+            .fetch_all(pool)
+            .await?
+        }
+        // Quote and source search
+        (Some(quote_text), Some(source_text), None) => {
+            let quote_pattern = format!("%{}%", quote_text.trim());
+            let source_pattern = format!("%{}%", source_text.trim());
+            sqlx::query_as!(
+                Quote,
+                "SELECT id, quote, source, created_at as \"created_at: DateTime<Utc>\", updated_at as \"updated_at: DateTime<Utc>\" FROM quotes WHERE quote LIKE ? AND source LIKE ? ORDER BY created_at DESC",
+                quote_pattern, source_pattern
+            )
+            .fetch_all(pool)
+            .await?
+        }
+        // Quote and tag search
+        (Some(quote_text), None, Some(tag_text)) => {
+            let quote_pattern = format!("%{}%", quote_text.trim());
+            let tag_pattern = format!("%{}%", tag_text.trim());
+            sqlx::query_as!(
+                Quote,
+                "SELECT DISTINCT quotes.id, quotes.quote, quotes.source, quotes.created_at as \"created_at: DateTime<Utc>\", quotes.updated_at as \"updated_at: DateTime<Utc>\" FROM quotes INNER JOIN tags ON quotes.id = tags.quote_id WHERE quotes.quote LIKE ? AND tags.name LIKE ? ORDER BY quotes.created_at DESC",
+                quote_pattern, tag_pattern
+            )
+            .fetch_all(pool)
+            .await?
+        }
+        // Source and tag search
+        (None, Some(source_text), Some(tag_text)) => {
+            let source_pattern = format!("%{}%", source_text.trim());
+            let tag_pattern = format!("%{}%", tag_text.trim());
+            sqlx::query_as!(
+                Quote,
+                "SELECT DISTINCT quotes.id, quotes.quote, quotes.source, quotes.created_at as \"created_at: DateTime<Utc>\", quotes.updated_at as \"updated_at: DateTime<Utc>\" FROM quotes INNER JOIN tags ON quotes.id = tags.quote_id WHERE quotes.source LIKE ? AND tags.name LIKE ? ORDER BY quotes.created_at DESC",
+                source_pattern, tag_pattern
+            )
+            .fetch_all(pool)
+            .await?
+        }
+        // All three search criteria
+        (Some(quote_text), Some(source_text), Some(tag_text)) => {
+            let quote_pattern = format!("%{}%", quote_text.trim());
+            let source_pattern = format!("%{}%", source_text.trim());
+            let tag_pattern = format!("%{}%", tag_text.trim());
+            sqlx::query_as!(
+                Quote,
+                "SELECT DISTINCT quotes.id, quotes.quote, quotes.source, quotes.created_at as \"created_at: DateTime<Utc>\", quotes.updated_at as \"updated_at: DateTime<Utc>\" FROM quotes INNER JOIN tags ON quotes.id = tags.quote_id WHERE quotes.quote LIKE ? AND quotes.source LIKE ? AND tags.name LIKE ? ORDER BY quotes.created_at DESC",
+                quote_pattern, source_pattern, tag_pattern
+            )
+            .fetch_all(pool)
+            .await?
+        }
+    };
 
     let mut quotes_with_tags = Vec::new();
 

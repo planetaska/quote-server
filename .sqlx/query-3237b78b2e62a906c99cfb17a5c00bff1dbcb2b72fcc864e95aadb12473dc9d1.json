@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT DISTINCT quotes.id, quotes.quote, quotes.source, quotes.created_at as \"created_at: DateTime<Utc>\", quotes.updated_at as \"updated_at: DateTime<Utc>\" FROM quotes INNER JOIN tags ON quotes.id = tags.quote_id WHERE quotes.quote LIKE ? AND tags.name LIKE ? ORDER BY quotes.created_at DESC",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "quote",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "source",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at: DateTime<Utc>",
+        "ordinal": 3,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "updated_at: DateTime<Utc>",
+        "ordinal": 4,
+        "type_info": "Datetime"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3237b78b2e62a906c99cfb17a5c00bff1dbcb2b72fcc864e95aadb12473dc9d1"
+}
